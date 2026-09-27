@@ -120,7 +120,6 @@ def build_message(high, low, condition, events):
     """Format a short message that fits the 6x22 Vestaboard."""
     lines = [
         f"{condition}  HI {high} LO {low}",
-        "",
     ]
     if events:
         lines.extend(events)
