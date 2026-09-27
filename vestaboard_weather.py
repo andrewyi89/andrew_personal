@@ -28,7 +28,7 @@ CALENDAR_IDS = [
     "andrew.yi89@gmail.com",      # your main calendar
     "liiaang@gmail.com",    # the second one you shared
 ]
-MAX_EVENTS = 4           # how many events fit alongside the weather
+MAX_EVENTS = 5           # how many events fit alongside the weather
 
 API_TOKEN = os.environ.get("VESTABOARD_API_TOKEN")
 GOOGLE_CREDS_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
