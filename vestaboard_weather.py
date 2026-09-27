@@ -25,8 +25,8 @@ LATITUDE = 40.7579   # New York, NY -- change to your location
 LONGITUDE = -73.9814
 
 CALENDAR_IDS = [
-    "liiaang@gmail.com",      # your main calendar
-    "andrew.yi89@gmail.com",    # the second one you shared
+    "your_email@gmail.com",      # your main calendar
+    "some_other_calendar_id",    # the second one you shared
 ]
 MAX_EVENTS = 4           # how many events fit alongside the weather
 
@@ -109,9 +109,9 @@ def get_agenda():
         title = event.get("summary", "Untitled")
         if "T" in start:  # timed event
             time_str = datetime.datetime.fromisoformat(start).strftime("%-I:%M%p").lower()
-        else:  # all-day event
-            time_str = "ALL DAY"
-        events.append(f"{time_str} {title}")
+            events.append(f"{time_str} {title}")
+        else:  # all-day event, no time prefix
+            events.append(title)
 
     return events
 
