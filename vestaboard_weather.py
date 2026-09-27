@@ -24,7 +24,10 @@ from googleapiclient.discovery import build
 LATITUDE = 40.7579   # New York, NY -- change to your location
 LONGITUDE = -73.9814
 
-CALENDAR_ID = "primary"  # or a specific calendar's ID/email
+CALENDAR_IDS = [
+    "liiaang@gmail.com",      # your main calendar
+    "andrew.yi89@gmail.com",    # the second one you shared
+]
 MAX_EVENTS = 4           # how many events fit alongside the weather
 
 API_TOKEN = os.environ.get("VESTABOARD_API_TOKEN")
@@ -82,16 +85,26 @@ def get_agenda():
     start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_day = start_of_day + datetime.timedelta(days=1)
 
-    events_result = service.events().list(
-        calendarId=CALENDAR_ID,
-        timeMin=start_of_day.isoformat(),
-        timeMax=end_of_day.isoformat(),
-        singleEvents=True,
-        orderBy="startTime",
-    ).execute()
+    all_events = []
+    for calendar_id in CALENDAR_IDS:
+        events_result = service.events().list(
+            calendarId=calendar_id,
+            timeMin=start_of_day.isoformat(),
+            timeMax=end_of_day.isoformat(),
+            singleEvents=True,
+            orderBy="startTime",
+        ).execute()
+        all_events.extend(events_result.get("items", []))
+
+    # Sort combined events from both calendars by start time
+    def sort_key(event):
+        start = event["start"].get("dateTime", event["start"].get("date"))
+        return start
+
+    all_events.sort(key=sort_key)
 
     events = []
-    for event in events_result.get("items", [])[:MAX_EVENTS]:
+    for event in all_events[:MAX_EVENTS]:
         start = event["start"].get("dateTime", event["start"].get("date"))
         title = event.get("summary", "Untitled")
         if "T" in start:  # timed event
