@@ -12,15 +12,23 @@ Setup:
 """
 
 import os
+import json
+import datetime
 import requests
 import vesta
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 # --- Configuration ---------------------------------------------------------
 
 LATITUDE = 40.7579   # New York, NY -- change to your location
 LONGITUDE = -73.9814
 
+CALENDAR_ID = "primary"  # or a specific calendar's ID/email
+MAX_EVENTS = 4           # how many events fit alongside the weather
+
 API_TOKEN = os.environ.get("VESTABOARD_API_TOKEN")
+GOOGLE_CREDS_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 
 # Open-Meteo weather codes -> short description
 # https://open-meteo.com/en/docs
@@ -58,17 +66,54 @@ def get_weather():
     return high, low, condition
 
 
-def build_message(high, low, condition):
+def get_agenda():
+    """Fetch today's events from Google Calendar via a service account."""
+    if not GOOGLE_CREDS_JSON:
+        return []
+
+    creds_info = json.loads(GOOGLE_CREDS_JSON)
+    scopes = ["https://www.googleapis.com/auth/calendar.readonly"]
+    creds = service_account.Credentials.from_service_account_info(
+        creds_info, scopes=scopes
+    )
+    service = build("calendar", "v3", credentials=creds)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_day = start_of_day + datetime.timedelta(days=1)
+
+    events_result = service.events().list(
+        calendarId=CALENDAR_ID,
+        timeMin=start_of_day.isoformat(),
+        timeMax=end_of_day.isoformat(),
+        singleEvents=True,
+        orderBy="startTime",
+    ).execute()
+
+    events = []
+    for event in events_result.get("items", [])[:MAX_EVENTS]:
+        start = event["start"].get("dateTime", event["start"].get("date"))
+        title = event.get("summary", "Untitled")
+        if "T" in start:  # timed event
+            time_str = datetime.datetime.fromisoformat(start).strftime("%-I:%M%p").lower()
+        else:  # all-day event
+            time_str = "ALL DAY"
+        events.append(f"{time_str} {title}")
+
+    return events
+
+
+def build_message(high, low, condition, events):
     """Format a short message that fits the 6x22 Vestaboard."""
     lines = [
-        "TODAY'S WEATHER",
+        f"{condition}  HI {high} LO {low}",
         "",
-        condition,
-        "",
-        f"HIGH: {high} F",
-        f"LOW:  {low} F",
     ]
-    return "\n".join(lines)
+    if events:
+        lines.extend(events)
+    else:
+        lines.append("NO EVENTS TODAY")
+    return "\n".join(lines[:6])  # board only has 6 rows
 
 
 def main():
@@ -76,7 +121,8 @@ def main():
         raise SystemExit("Set the VESTABOARD_API_TOKEN environment variable first.")
 
     high, low, condition = get_weather()
-    message_text = build_message(high, low, condition)
+    events = get_agenda()
+    message_text = build_message(high, low, condition, events)
     print("Posting:\n" + message_text)
 
     client = vesta.CloudClient(API_TOKEN)
