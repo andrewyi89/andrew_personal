@@ -103,15 +103,18 @@ def get_agenda():
 
     all_events.sort(key=sort_key)
 
+    BOARD_WIDTH = 22  # flagship Vestaboard is 22 characters wide
+
     events = []
     for event in all_events[:MAX_EVENTS]:
         start = event["start"].get("dateTime", event["start"].get("date"))
         title = event.get("summary", "Untitled")
         if "T" in start:  # timed event
             time_str = datetime.datetime.fromisoformat(start).strftime("%-I:%M%p").lower()
-            events.append(f"{time_str} {title}")
+            line = f"{time_str} {title}"
         else:  # all-day event, no time prefix
-            events.append(title)
+            line = title
+        events.append(line[:BOARD_WIDTH])
 
     return events
 
