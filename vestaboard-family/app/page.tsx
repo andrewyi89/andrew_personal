@@ -42,6 +42,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [saved, setSaved] = useState<Saved[]>([]);
   const [ws, setWs] = useState(false);
+  const [morning, setMorning] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,7 +52,11 @@ export default function Home() {
   useEffect(() => {
     if (!pass) return;
     loadSaved();
-    run(async () => setWs((await api("/api/settings", pass)).worldSeries));
+    run(async () => {
+      const s = await api("/api/settings", pass);
+      setWs(s.worldSeries);
+      setMorning(s.morning);
+    });
   }, [pass]);
 
   const run = async (fn: () => Promise<void>) => {
@@ -157,6 +162,17 @@ export default function Home() {
             if (on) setTimeout(() => window.location.reload(), 1500);
           })} />
         World Series score updates
+      </label>
+
+      <label className="row" style={{ fontWeight: 600 }}>
+        <input type="checkbox" checked={morning} style={{ width: 24, height: 24 }}
+          onChange={(e) => run(async () => {
+            const on = e.target.checked;
+            await api("/api/settings", pass, { method: "POST", body: JSON.stringify({ morning: on }) });
+            setMorning(on);
+            setMsg(on ? "Morning updates are on (7 to 8 AM, weekdays)." : "Morning updates are off.");
+          })} />
+        Morning updates (7 to 8 AM, weekdays)
       </label>
 
       <div>
