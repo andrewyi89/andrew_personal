@@ -41,13 +41,18 @@ export default function Home() {
   const [sentence, setSentence] = useState("");
   const [name, setName] = useState("");
   const [saved, setSaved] = useState<Saved[]>([]);
+  const [ws, setWs] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPass(localStorage.getItem("pass") || "");
     setWho(localStorage.getItem("who") || "");
   }, []);
-  useEffect(() => { if (pass) loadSaved(); }, [pass]);
+  useEffect(() => {
+    if (!pass) return;
+    loadSaved();
+    run(async () => setWs((await api("/api/settings", pass)).worldSeries));
+  }, [pass]);
 
   const run = async (fn: () => Promise<void>) => {
     try { await fn(); } catch (e: any) { setMsg(e.message); }
@@ -141,6 +146,16 @@ export default function Home() {
         })}>Load current board</button>
       </div>
       <div className="msg">{msg}</div>
+
+      <label className="row" style={{ fontWeight: 600 }}>
+        <input type="checkbox" checked={ws} style={{ width: 24, height: 24 }}
+          onChange={(e) => run(async () => {
+            await api("/api/settings", pass, { method: "POST", body: JSON.stringify({ worldSeries: e.target.checked }) });
+            setWs(e.target.checked);
+            setMsg(e.target.checked ? "World Series updates are on." : "World Series updates are off.");
+          })} />
+        World Series score updates
+      </label>
 
       <div>
         <textarea rows={2} placeholder="Or type a sentence and we will center it for you"
