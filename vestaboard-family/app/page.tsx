@@ -150,9 +150,11 @@ export default function Home() {
       <label className="row" style={{ fontWeight: 600 }}>
         <input type="checkbox" checked={ws} style={{ width: 24, height: 24 }}
           onChange={(e) => run(async () => {
-            await api("/api/settings", pass, { method: "POST", body: JSON.stringify({ worldSeries: e.target.checked }) });
-            setWs(e.target.checked);
-            setMsg(e.target.checked ? "World Series updates are on." : "World Series updates are off.");
+            const on = e.target.checked;
+            await api("/api/settings", pass, { method: "POST", body: JSON.stringify({ worldSeries: on }) });
+            setWs(on);
+            setMsg(on ? "World Series updates are on. Refreshing..." : "World Series updates are off.");
+            if (on) setTimeout(() => window.location.reload(), 1500);
           })} />
         World Series score updates
       </label>
