@@ -1,8 +1,10 @@
 import { COLS, emptyBoard, charToCode } from "@/lib/shared";
 
-// ZIP 10023 (Upper West Side, Manhattan)
-const LAT = 40.7769;
-const LON = -73.9813;
+// ZIP 10024 (Upper West Side, Manhattan)
+const LAT = 40.7869;
+const LON = -73.9763;
+
+export type Weather = { now: number; feels: number; hi: number; lo: number; pop: number; snow: boolean };
 
 export function etNow(d = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -19,21 +21,40 @@ export function etNow(d = new Date()) {
 }
 
 // Open-Meteo: free, no key.
-export async function fetchHighLow() {
+export async function fetchWeather(): Promise<Weather> {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
-    `&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit` +
-    `&timezone=America%2FNew_York&forecast_days=1`;
+    `&current=temperature_2m,apparent_temperature` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,snowfall_sum` +
+    `&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1`;
   const r = await fetch(url, { cache: "no-store" });
   if (!r.ok) throw new Error("Weather error");
   const d = await r.json();
-  return { hi: Math.round(d.daily.temperature_2m_max[0]), lo: Math.round(d.daily.temperature_2m_min[0]) };
+  return {
+    now: Math.round(d.current.temperature_2m),
+    feels: Math.round(d.current.apparent_temperature),
+    hi: Math.round(d.daily.temperature_2m_max[0]),
+    lo: Math.round(d.daily.temperature_2m_min[0]),
+    pop: Math.round(d.daily.precipitation_probability_max[0] ?? 0),
+    snow: (d.daily.snowfall_sum[0] ?? 0) > 0,
+  };
 }
 
-export function morningLayout(hi: number, lo: number, hour: number, minute: number): number[][] {
-  const left = `H: ${hi} L: ${lo}`;
-  const right = `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
-  const text = left + " ".repeat(Math.max(1, COLS - left.length - right.length)) + right;
+function place(b: number[][], row: number, text: string, start: number) {
+  [...text].forEach((ch, i) => {
+    if (start + i >= 0 && start + i < COLS) b[row][start + i] = charToCode(ch) ?? 0;
+  });
+}
+
+export function morningLayout(w: Weather, hour: number, minute: number): number[][] {
   const b = emptyBoard();
-  b[0] = [...text.slice(0, COLS)].map((ch) => charToCode(ch) ?? 0);
+  const clock = `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+  const header = "NYC WEATHER";
+  place(b, 0, header, Math.floor((COLS - header.length) / 2));
+  place(b, 1, `NOW: ${w.now}`, 0);
+  place(b, 1, clock, COLS - clock.length);
+  place(b, 2, `FEELS: ${w.feels ?? w.now}`, 0);
+  place(b, 3, `HIGH: ${w.hi}`, 0);
+  place(b, 4, `LOW: ${w.lo}`, 0);
+  place(b, 5, `${w.snow ? "SNOW" : "RAIN"}: ${w.pop}%`, 0);
   return b;
 }
