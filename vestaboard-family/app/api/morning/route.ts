@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { etNow, fetchHighLow, morningLayout } from "@/lib/morning";
+import { etNow, fetchWeather, morningLayout, Weather } from "@/lib/morning";
 
 export const dynamic = "force-dynamic";
 const db = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -23,19 +23,19 @@ export async function GET(req: Request) {
   const key = `${now.date} ${now.hour}:${now.minute}`;
   if (!force && state.key === key) return NextResponse.json({ skipped: "already sent" });
 
-  let w = state.day === now.date && state.hi !== undefined ? { hi: state.hi, lo: state.lo } : null;
-  if (!w) {
-    try { w = await fetchHighLow(); }
-    catch { return NextResponse.json({ error: "Weather unavailable" }, { status: 502 }); } // retries next minute
-  }
+  // Fresh weather each minute; if the weather service fails, reuse today's last reading.
+  let w: Weather | null = null;
+  try { w = await fetchWeather(); }
+  catch { if (state.day === now.date && state.w) w = state.w; }
+  if (!w) return NextResponse.json({ error: "Weather unavailable" }, { status: 502 }); // retries next minute
 
   const r = await fetch("https://rw.vestaboard.com/", {
     method: "POST",
     headers: { "X-Vestaboard-Read-Write-Key": process.env.VESTABOARD_RW_KEY!, "Content-Type": "application/json" },
-    body: JSON.stringify(morningLayout(w.hi, w.lo, now.hour, now.minute)),
+    body: JSON.stringify(morningLayout(w, now.hour, now.minute)),
   });
   if (!r.ok) return NextResponse.json({ error: "Vestaboard rejected it" }, { status: 502 });
 
-  await db().from("integrations").update({ state: { key, day: now.date, hi: w.hi, lo: w.lo } }).eq("id", "morning");
+  await db().from("integrations").update({ state: { key, day: now.date, w } }).eq("id", "morning");
   return NextResponse.json({ sent: true, ...w, time: `${now.hour}:${now.minute}` });
 }
